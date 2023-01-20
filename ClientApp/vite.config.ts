@@ -9,4 +9,7 @@ export default defineConfig({
         emptyOutDir: true,
         manifest: true,
     },
+    ssr: {
+        format: "cjs",
+    }
 });

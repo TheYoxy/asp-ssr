@@ -4,24 +4,9 @@
   Layout = null;
 }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <link href="/vite.svg" rel="icon" type="image/svg+xml" />
-  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-  <title>Vite + React + TS</title>
-</head>
-<body>
-<div>Hello world</div>
-<div id="app"><!--app-html--></div>
-<script src="ClientApp/src/entry-client.tsx" type="module"></script>
+
+@Html.Raw(Model.ViewData["Html"])
+
 <environment names="Development">
-  <script src="~/dist/@@vite/client" type="module"></script>
-  <script src="~/dist/js/main.js" type="module"></script>
+  <script src="/_framework/aspnetcore-browser-refresh.js"></script>
 </environment>
-<environment names="Staging,Production">
-  <script asp-src-include="~/dist/assets/main.*.js" type="module"></script>
-</environment>
-</body>
-</html>

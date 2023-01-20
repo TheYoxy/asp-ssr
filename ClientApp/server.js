@@ -14,11 +14,12 @@ export async function createServer(
     isProd = process.env.NODE_ENV === 'production',
     hmrPort,
 ) {
+    if (isProd) {
+        throw new Error('Production mode is not supported')
+    }
     const resolve = (p) => path.resolve(__dirname, p)
 
-    const indexProd = isProd
-        ? fs.readFileSync(resolve('dist/client/index.html'), 'utf-8')
-        : ''
+    const indexProd = ''
 
     const app = express()
 
@@ -49,17 +50,7 @@ export async function createServer(
         })
         // use vite's connect instance as middleware
         app.use(vite.middlewares)
-    } else {
-        console.log('Using compression');
-        app.use((await import('compression')).default())
-
-        console.log('Using serve-static');
-        app.use(
-            (await import('serve-static')).default(resolve('dist/client'), {
-                index: false,
-            }),
-        )
-    }
+    } 
 
     app.use('*', async (req, res) => {
         try {
