@@ -1,7 +1,5 @@
 ﻿@page
-@using Microsoft.JSInterop
 @model asp_ssr.Pages.Index
-@inject IJSRuntime JS
 @{
   Layout = null;
 }
@@ -17,7 +15,7 @@
 <body>
 <div>Hello world</div>
 <div id="app"><!--app-html--></div>
-<script src="~/src/entry-client.tsx" type="module"></script>
+<script src="ClientApp/src/entry-client.tsx" type="module"></script>
 <environment names="Development">
   <script src="~/dist/@@vite/client" type="module"></script>
   <script src="~/dist/js/main.js" type="module"></script>

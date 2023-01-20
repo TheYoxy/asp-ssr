@@ -1,5 +1,8 @@
+using Jering.Javascript.NodeJS;
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
+builder.Services.AddNodeJS();
 
 var app = builder.Build();
 
@@ -16,6 +19,7 @@ app.UseRouting();
 
 app.MapRazorPages();
 
-app.MapFallbackToFile("index.html");
+if (app.Environment.IsDevelopment())
+  app.UseSpa(spa => spa.UseProxyToSpaDevelopmentServer("http://localhost:5173"));
 
-app.Run();
+await app.RunAsync();

@@ -1,6 +1,7 @@
-﻿import fs from 'node:fs'
+import fs from 'node:fs'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
+import express from 'express'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -26,7 +27,7 @@ export async function createServer(
      */
     let vite
     if (!isProd) {
-        console.log('dev mode')
+        console.log('Starting dev server...')
         vite = await (
             await import('vite')
         ).createServer({
@@ -49,7 +50,10 @@ export async function createServer(
         // use vite's connect instance as middleware
         app.use(vite.middlewares)
     } else {
+        console.log('Using compression');
         app.use((await import('compression')).default())
+
+        console.log('Using serve-static');
         app.use(
             (await import('serve-static')).default(resolve('dist/client'), {
                 index: false,
@@ -64,10 +68,12 @@ export async function createServer(
             let template, render
             if (!isProd) {
                 // always read fresh template in dev
+                console.log('Rendering template');
                 template = fs.readFileSync(resolve('index.html'), 'utf-8')
                 template = await vite.transformIndexHtml(url, template)
-                render = (await vite.ssrLoadModule('/src/entry-server.jsx')).render
+                render = (await vite.ssrLoadModule('/src/entry-server.tsx')).render
             } else {
+                console.log('Rendering template with built entry-server');
                 template = indexProd
                 // @ts-ignore
                 render = (await import('./dist/server/entry-server.js')).render
@@ -75,6 +81,7 @@ export async function createServer(
 
             const context = {}
             const appHtml = render(url, context)
+            console.log('Rendered: ', appHtml);
 
             if (context.url) {
                 // Somewhere a `<Redirect>` was rendered
