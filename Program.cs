@@ -1,7 +1,7 @@
 using Jering.Javascript.NodeJS;
+using Microsoft.AspNetCore.Http.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddRazorPages();
 builder.Services.AddNodeJS();
 builder.Services.AddSpaStaticFiles(options => options.RootPath = "ClientApp/dist");
 
@@ -16,8 +16,35 @@ if (!app.Environment.IsDevelopment()) {
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-app.UseRouting();
-app.MapRazorPages();
+app.MapFallback(async (HttpContext context, INodeJSService nodeJsService, ILogger<Program> logger, CancellationToken cancellationToken) => {
+  logger.LogInformation("Reading index.html");
+  var html = await File.ReadAllTextAsync("ClientApp/dist/index.html", cancellationToken);
+
+  logger.LogInformation("Rendering client");
+  var output = await nodeJsService.InvokeFromStringAsync<string>(
+    // language=JavaScript
+    """
+module.exports = (callback, url) => {
+    function requireModule(modulePath, exportName) {
+        try {
+            const imported = require(modulePath);
+            return exportName ? imported[exportName] : imported;
+        } catch (err) {
+            return err.code;
+        }
+    }
+
+    const render = requireModule('./ClientApp/dist/server/entry-server.cjs', 'render');
+    const context = {};
+    const html = render(url, context);
+    callback(null, html);
+}
+""", "render", null, new[] { context.Request.GetEncodedPathAndQuery() }, cancellationToken);
+
+  var htmlContent = html.Replace("<!--app-html-->", output);
+  logger.LogInformation("Rendered output {Output}", htmlContent);
+  return Results.Content(htmlContent, "text/html");
+});
 
 if (!app.Environment.IsDevelopment()) app.UseSpaStaticFiles();
 

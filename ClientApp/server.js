@@ -9,10 +9,11 @@ const isTest = process.env.VITEST
 
 process.env.MY_CUSTOM_SECRET = 'API_KEY_qwertyuiop'
 
+const hmrPort = 5174
+
 export async function createServer(
     root = process.cwd(),
     isProd = process.env.NODE_ENV === 'production',
-    hmrPort,
 ) {
     if (isProd) {
         throw new Error('Production mode is not supported')
@@ -43,14 +44,15 @@ export async function createServer(
                     interval: 100,
                 },
                 hmr: {
-                    port: hmrPort,
-                },
+                    protocol:'ws',
+                    port: hmrPort
+                }
             },
             appType: 'custom',
         })
         // use vite's connect instance as middleware
         app.use(vite.middlewares)
-    } 
+    }
 
     app.use('*', async (req, res) => {
         try {

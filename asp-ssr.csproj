@@ -30,4 +30,8 @@
     <ItemGroup>
         <Folder Include="wwwroot" />
     </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="Pages\Index.cshtml" />
+    </ItemGroup>
 </Project>
