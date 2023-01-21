@@ -1,9 +1,13 @@
 using Jering.Javascript.NodeJS;
 using Microsoft.AspNetCore.Http.Extensions;
+using Serilog;
+using Serilog.Sinks.SystemConsole.Themes;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddNodeJS();
 builder.Services.AddSpaStaticFiles(options => options.RootPath = "ClientApp/dist");
+builder.Services.AddOutputCache();
+builder.Host.UseSerilog((context, configuration) => { configuration.MinimumLevel.Warning().WriteTo.Console(theme: AnsiConsoleTheme.Code); });
 
 var app = builder.Build();
 
@@ -18,7 +22,7 @@ app.UseHttpLogging();
 app.UseStaticFiles();
 
 app.UseRouting();
-
+app.UseOutputCache();
 app.MapGet("/api/todos", () => {
   app.Logger.LogInformation("GET /api/todos");
   return new Todo[] { new("Hello") };
@@ -30,26 +34,28 @@ if (app.Environment.IsProduction())
     var html = await File.ReadAllTextAsync("ClientApp/dist/index.html", cancellationToken);
 
     logger.LogInformation("Rendering client");
-    var output = await nodeJsService.InvokeFromStringAsync<Result>(
-      // language=JavaScript
-      """
+
+    Result? result;
+    var fromCache = await nodeJsService.TryInvokeFromCacheAsync<Result>("render", null, new[] { context.Request.GetEncodedPathAndQuery() }, cancellationToken);
+
+    if (!fromCache.Item1) {
+      logger.LogWarning("Cache miss");
+      result = await nodeJsService.InvokeFromStringAsync<Result>(
+        // language=JavaScript
+        """
 module.exports = async (url) => {
-    function requireModule(modulePath, exportName) {
-        try {
-            const imported = require(modulePath);
-            return exportName ? imported[exportName] : imported;
-        } catch (err) {
-            return err.code;
-        }
-    }
-    const render = requireModule('./ClientApp/dist/server/entry-server.cjs', 'render');
+    const render = require('./ClientApp/dist/server/entry-server.cjs').render;
     const context = {};
     const [html, state] = await render(url, context);
     return {html, state: JSON.stringify(state)};
 }
 """, "render", null, new[] { context.Request.GetEncodedPathAndQuery() }, cancellationToken);
+    }
+    else {
+      result = fromCache.Item2;
+    }
 
-    var htmlContent = html.Replace("<!--app-html-->", output.Html).Replace("<!--react-query-data-->", $"window.__REACT_QUERY_STATE__ = {output.State};");
+    var htmlContent = html.Replace("<!--app-html-->", result.Html).Replace("<!--react-query-data-->", $"window.__REACT_QUERY_STATE__ = {result.State};");
     logger.LogInformation("Rendered output {Output}", htmlContent);
     return Results.Content(htmlContent, "text/html");
   });

@@ -15,13 +15,12 @@ export async function createServer(
     root = process.cwd(),
     isProd = process.env.NODE_ENV === 'production',
 ) {
-    if (isProd) {
-        throw new Error('Production mode is not supported')
-    }
     const resolve = (p) => path.resolve(__dirname, p)
 
-    const indexProd = ''
-
+    const indexProd = isProd
+        ? fs.readFileSync(resolve('dist/index.html'), 'utf-8')
+        : ''
+    
     const app = express()
 
     /**
@@ -73,7 +72,6 @@ export async function createServer(
                 template = await vite.transformIndexHtml(url, template)
                 render = (await vite.ssrLoadModule('/src/entry-server.tsx')).render
             } else {
-                console.log('Rendering template with built entry-server');
                 template = indexProd
                 // @ts-ignore
                 render = (await import('./dist/server/entry-server.js')).render
@@ -81,9 +79,6 @@ export async function createServer(
 
             const context = {}
             const [appHtml, state] = await render(url, context)
-
-            console.log('Rendered: ', appHtml);
-            console.log('React query state: ', state);
 
             if (context.url) {
                 // Somewhere a `<Redirect>` was rendered
