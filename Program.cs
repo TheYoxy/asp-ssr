@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddNodeJS();
 builder.Services.AddSpaStaticFiles(options => options.RootPath = "ClientApp/dist");
 builder.Services.AddOutputCache();
-builder.Host.UseSerilog((context, configuration) => { configuration.MinimumLevel.Warning().WriteTo.Console(theme: AnsiConsoleTheme.Code); });
+builder.Host.UseSerilog((_, configuration) => { configuration.WriteTo.Console(theme: AnsiConsoleTheme.Code); });
 
 var app = builder.Build();
 
@@ -23,9 +23,10 @@ app.UseStaticFiles();
 
 app.UseRouting();
 app.UseOutputCache();
+
 app.MapGet("/api/todos", () => {
   app.Logger.LogInformation("GET /api/todos");
-  return new Todo[] { new("Hello") };
+  return new Todo[] { new("Hello"), new("World") };
 });
 
 if (app.Environment.IsProduction())
@@ -66,7 +67,7 @@ if (!app.Environment.IsDevelopment()) app.UseSpaStaticFiles();
 app.UseSpa(spa => {
   spa.Options.SourcePath = "ClientApp";
   if (app.Environment.IsDevelopment())
-    spa.UseProxyToSpaDevelopmentServer("http://localhost:5173");
+    spa.UseProxyToSpaDevelopmentServer("http://localhost:3000");
 });
 
 await app.RunAsync();
