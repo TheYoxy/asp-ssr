@@ -14,17 +14,26 @@ if (!app.Environment.IsDevelopment()) {
 }
 
 app.UseHttpsRedirection();
+app.UseHttpLogging();
 app.UseStaticFiles();
 
-app.MapFallback(async (HttpContext context, INodeJSService nodeJsService, ILogger<Program> logger, CancellationToken cancellationToken) => {
-  logger.LogInformation("Reading index.html");
-  var html = await File.ReadAllTextAsync("ClientApp/dist/index.html", cancellationToken);
+app.UseRouting();
 
-  logger.LogInformation("Rendering client");
-  var output = await nodeJsService.InvokeFromStringAsync<string>(
-    // language=JavaScript
-    """
-module.exports = (callback, url) => {
+app.MapGet("/api/todos", () => {
+  app.Logger.LogInformation("GET /api/todos");
+  return new Todo[] { new("Hello") };
+});
+
+if (app.Environment.IsProduction())
+  app.MapFallback(async (HttpContext context, INodeJSService nodeJsService, ILogger<Program> logger, CancellationToken cancellationToken) => {
+    logger.LogInformation("Reading index.html");
+    var html = await File.ReadAllTextAsync("ClientApp/dist/index.html", cancellationToken);
+
+    logger.LogInformation("Rendering client");
+    var output = await nodeJsService.InvokeFromStringAsync<Result>(
+      // language=JavaScript
+      """
+module.exports = async (url) => {
     function requireModule(modulePath, exportName) {
         try {
             const imported = require(modulePath);
@@ -33,19 +42,19 @@ module.exports = (callback, url) => {
             return err.code;
         }
     }
-
     const render = requireModule('./ClientApp/dist/server/entry-server.cjs', 'render');
     const context = {};
-    const html = render(url, context);
-    callback(null, html);
+    const [html, state] = await render(url, context);
+    return {html, state: JSON.stringify(state)};
 }
 """, "render", null, new[] { context.Request.GetEncodedPathAndQuery() }, cancellationToken);
 
-  var htmlContent = html.Replace("<!--app-html-->", output);
-  logger.LogInformation("Rendered output {Output}", htmlContent);
-  return Results.Content(htmlContent, "text/html");
-});
+    var htmlContent = html.Replace("<!--app-html-->", output.Html).Replace("<!--react-query-data-->", $"window.__REACT_QUERY_STATE__ = {output.State};");
+    logger.LogInformation("Rendered output {Output}", htmlContent);
+    return Results.Content(htmlContent, "text/html");
+  });
 
+app.UseEndpoints(_ => { });
 if (!app.Environment.IsDevelopment()) app.UseSpaStaticFiles();
 
 app.UseSpa(spa => {
@@ -55,3 +64,7 @@ app.UseSpa(spa => {
 });
 
 await app.RunAsync();
+
+internal sealed record Result(string Html, string State);
+
+internal sealed record Todo(string Title);

@@ -6,7 +6,7 @@ import express from 'express'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const isTest = process.env.VITEST
-
+process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0;
 process.env.MY_CUSTOM_SECRET = 'API_KEY_qwertyuiop'
 
 const hmrPort = 5174
@@ -44,9 +44,16 @@ export async function createServer(
                     interval: 100,
                 },
                 hmr: {
-                    protocol:'ws',
+                    protocol: 'ws',
                     port: hmrPort
-                }
+                },
+                proxy: {
+                    '/api': {
+                        target: 'https://localhost:5001',
+                        changeOrigin: true,
+                        secure: false,
+                    },
+                },
             },
             appType: 'custom',
         })
@@ -73,15 +80,17 @@ export async function createServer(
             }
 
             const context = {}
-            const appHtml = render(url, context)
+            const [appHtml, state] = await render(url, context)
+
             console.log('Rendered: ', appHtml);
+            console.log('React query state: ', state);
 
             if (context.url) {
                 // Somewhere a `<Redirect>` was rendered
                 return res.redirect(301, context.url)
             }
 
-            const html = template.replace(`<!--app-html-->`, appHtml)
+            const html = template.replace(`<!--app-html-->`, appHtml).replace("<!--react-query-data-->", `window.__REACT_QUERY_STATE__ = ${JSON.stringify(state)};`)
 
             res.status(200).set({'Content-Type': 'text/html'}).end(html)
         } catch (e) {

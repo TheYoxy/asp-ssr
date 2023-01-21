@@ -1,3 +1,4 @@
+import {Suspense} from "react";
 import {Link, Route, Routes} from "react-router-dom";
 import './index.css'
 
@@ -28,11 +29,13 @@ export function App() {
                     })}
                 </ul>
             </nav>
-            <Routes>
-                {routes.map(({path, component: RouteComp}) => {
-                    return <Route key={path} path={path} element={<RouteComp/>}></Route>;
-                })}
-            </Routes>
+            <Suspense fallback={<>Loading....</>}>
+                <Routes>
+                    {routes.map(({path, component: RouteComp}) => {
+                        return <Route key={path} path={path} element={<RouteComp/>}></Route>;
+                    })}
+                </Routes>
+            </Suspense>
         </>
     );
 }
