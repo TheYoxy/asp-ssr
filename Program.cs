@@ -1,30 +1,33 @@
-using Jering.Javascript.NodeJS;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using Serilog.Sinks.SystemConsole.Themes;
+using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Headers;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddNodeJS();
 builder.Services.AddOutputCache();
 builder.Host.UseSerilog((_, configuration) => { configuration.WriteTo.Console(theme: AnsiConsoleTheme.Code); });
 builder.Services.AddHttpClient();
 
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-  .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options => {
-    options.Events.OnRedirectToLogin = context => {
-      context.Response.StatusCode = 401;
-      return Task.CompletedTask;
-    };
-
-    options.Events.OnRedirectToAccessDenied = context => {
-      context.Response.StatusCode = 403;
-      return Task.CompletedTask;
+builder.Services
+  .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+  .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme)
+  .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options => {
+    options.Events = new JwtBearerEvents {
+      OnMessageReceived = ctx => {
+        var logger = ctx.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+        // logger.LogInformation("Message received: {Token}", ctx.Token);
+        return Task.CompletedTask;
+      },
     };
   });
 
 builder.Services.AddAuthorization();
+builder.Services.AddSpaStaticFiles(options => options.RootPath = "ClientApp/public");
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -53,70 +56,69 @@ app.MapGet("/api/todos", () => {
   })
   .RequireAuthorization();
 
+app.UseSpaStaticFiles();
+app.MapFallback(async (HttpContext context, HttpClient client) => {
+  var targetUri = new Uri("http://localhost:3000");
+
+  static HttpMethod GetMethod(string method) {
+    if (HttpMethods.IsDelete(method)) return HttpMethod.Delete;
+    if (HttpMethods.IsGet(method)) return HttpMethod.Get;
+    if (HttpMethods.IsHead(method)) return HttpMethod.Head;
+    if (HttpMethods.IsOptions(method)) return HttpMethod.Options;
+    if (HttpMethods.IsPost(method)) return HttpMethod.Post;
+    if (HttpMethods.IsPut(method)) return HttpMethod.Put;
+    if (HttpMethods.IsTrace(method)) return HttpMethod.Trace;
+    return new HttpMethod(method);
+  }
+
+  var requestMessage = new HttpRequestMessage();
+  var requestMethod = context.Request.Method;
+
+  if (!HttpMethods.IsGet(requestMethod) &&
+      !HttpMethods.IsHead(requestMethod) &&
+      !HttpMethods.IsDelete(requestMethod) &&
+      !HttpMethods.IsTrace(requestMethod)) {
+    var streamContent = new StreamContent(context.Request.Body);
+    requestMessage.Content = streamContent;
+  }
+
+  foreach (var header in context.Request.Headers) {
+    requestMessage.Content?.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray());
+  }
+
+  var handler = new JwtSecurityTokenHandler();
+  var key = "secretqsjfhdsqjfhlqsjhflkqsjhfdlkjqshl"u8.ToArray();
+  var tokenDescriptor = new SecurityTokenDescriptor {
+    Subject = new ClaimsIdentity(new Claim[] { new("username", "test") }),
+    Expires = DateTime.UtcNow.AddMinutes(1),
+    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),
+  };
+  var token = handler.CreateToken(tokenDescriptor);
+  var tokenString = handler.WriteToken(token);
+  requestMessage.Headers.ProxyAuthorization = new AuthenticationHeaderValue(JwtBearerDefaults.AuthenticationScheme, tokenString);
+  requestMessage.RequestUri = targetUri;
+  requestMessage.Headers.Host = targetUri.Host;
+  requestMessage.Method = GetMethod(context.Request.Method);
+
+  var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+  logger.LogWarning("Headers: {@Request}", requestMessage.Headers);
+
+  using var responseMessage = await client.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+
+  context.Response.StatusCode = (int)responseMessage.StatusCode;
+  foreach (var header1 in responseMessage.Headers) {
+    context.Response.Headers[header1.Key] = header1.Value.ToArray();
+  }
+
+  foreach (var header2 in responseMessage.Content.Headers) {
+    context.Response.Headers[header2.Key] = header2.Value.ToArray();
+  }
+
+  context.Response.Headers.Remove("transfer-encoding");
+  await responseMessage.Content.CopyToAsync(context.Response.Body);
+});
+
 app.UseEndpoints(_ => { });
-
-if (app.Environment.IsDevelopment())
-  app.UseSpa(spa => {
-    spa.Options.SourcePath = "ClientApp";
-    spa.UseProxyToSpaDevelopmentServer("http://localhost:3000");
-  });
-else {
-  app.MapFallback(async (HttpContext context, HttpClient client) => {
-    var targetUri = new Uri("http://localhost:3000");
-
-    static void CopyFromOriginalRequestContentAndHeaders(HttpContext context, HttpRequestMessage requestMessage) {
-      var requestMethod = context.Request.Method;
-
-      if (!HttpMethods.IsGet(requestMethod) &&
-          !HttpMethods.IsHead(requestMethod) &&
-          !HttpMethods.IsDelete(requestMethod) &&
-          !HttpMethods.IsTrace(requestMethod)) {
-        var streamContent = new StreamContent(context.Request.Body);
-        requestMessage.Content = streamContent;
-      }
-
-      foreach (var header in context.Request.Headers) {
-        requestMessage.Content?.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray());
-      }
-    }
-
-    static void CopyFromTargetResponseHeaders(HttpContext context, HttpResponseMessage responseMessage) {
-      foreach (var header in responseMessage.Headers) {
-        context.Response.Headers[header.Key] = header.Value.ToArray();
-      }
-
-      foreach (var header in responseMessage.Content.Headers) {
-        context.Response.Headers[header.Key] = header.Value.ToArray();
-      }
-
-      context.Response.Headers.Remove("transfer-encoding");
-    }
-
-    static HttpMethod GetMethod(string method) {
-      if (HttpMethods.IsDelete(method)) return HttpMethod.Delete;
-      if (HttpMethods.IsGet(method)) return HttpMethod.Get;
-      if (HttpMethods.IsHead(method)) return HttpMethod.Head;
-      if (HttpMethods.IsOptions(method)) return HttpMethod.Options;
-      if (HttpMethods.IsPost(method)) return HttpMethod.Post;
-      if (HttpMethods.IsPut(method)) return HttpMethod.Put;
-      if (HttpMethods.IsTrace(method)) return HttpMethod.Trace;
-      return new HttpMethod(method);
-    }
-
-    var requestMessage = new HttpRequestMessage();
-    CopyFromOriginalRequestContentAndHeaders(context, requestMessage);
-
-    requestMessage.RequestUri = targetUri;
-    requestMessage.Headers.Host = targetUri.Host;
-    requestMessage.Method = GetMethod(context.Request.Method);
-
-    using var responseMessage = await client.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
-    context.Response.StatusCode = (int)responseMessage.StatusCode;
-    CopyFromTargetResponseHeaders(context, responseMessage);
-    await responseMessage.Content.CopyToAsync(context.Response.Body);
-  });
-}
-
 
 await app.RunAsync();
 
