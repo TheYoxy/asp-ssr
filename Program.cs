@@ -6,6 +6,7 @@ using Serilog;
 using Serilog.Sinks.SystemConsole.Themes;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
+using System.Net.WebSockets;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,6 +44,7 @@ app.UseRouting();
 app.UseOutputCache();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseSpaStaticFiles();
 
 app.MapGet("/api/login", async (HttpContext ctx) => {
   await ctx.SignInAsync(new ClaimsPrincipal(new ClaimsIdentity(new Claim[] { new("username", "test") }, CookieAuthenticationDefaults.AuthenticationScheme)));
@@ -56,7 +58,6 @@ app.MapGet("/api/todos", () => {
   })
   .RequireAuthorization();
 
-app.UseSpaStaticFiles();
 app.MapFallback(async (HttpContext context, HttpClient client) => {
   var targetUri = new Uri("http://localhost:3000");
 
