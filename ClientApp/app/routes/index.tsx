@@ -1,8 +1,10 @@
 import {json, LoaderFunction} from "@remix-run/node";
 import {Outlet, useLoaderData} from "@remix-run/react";
 
-export const loader: LoaderFunction = async () => {
-    const todos = await fetch(process.env.BACKEND_URL + '/api/todos').then(res => res.ok ? res.json() : []);
+export const loader: LoaderFunction = async ({request}) => {
+    const auth = request.headers.get('Proxy-Authorization');
+    console.log(auth);
+    const todos = await fetch(process.env.BACKEND_URL + '/api/todos', {headers: {Authorization: auth}}).then(res => res.ok ? res.json() : []);
     return json({message: "Hello World", todos});
 };
 export default function Index() {

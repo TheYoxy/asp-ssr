@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using Serilog.Sinks.SystemConsole.Themes;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
-using System.Net.WebSockets;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,17 +14,21 @@ builder.Services.AddOutputCache();
 builder.Host.UseSerilog((_, configuration) => { configuration.WriteTo.Console(theme: AnsiConsoleTheme.Code); });
 builder.Services.AddHttpClient();
 
+var key = "secretqsjfhdsqjfhlqsjhflkqsjhfdlkjqshl"u8.ToArray();
 builder.Services
   .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
   .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme)
   .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options => {
-    options.Events = new JwtBearerEvents {
-      OnMessageReceived = ctx => {
-        var logger = ctx.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-        // logger.LogInformation("Message received: {Token}", ctx.Token);
-        return Task.CompletedTask;
-      },
+    options.TokenValidationParameters = new TokenValidationParameters() {
+      ValidateAudience = false,
+      ValidateActor = false,
+      ValidateIssuer = false,
+      ValidateLifetime = false,
+      ValidateTokenReplay = false,
+      ValidateIssuerSigningKey = false,
+      IssuerSigningKey = new SymmetricSecurityKey(key)
     };
+    options.SecurityTokenValidators.Add(new JwtSecurityTokenHandler());
   });
 
 builder.Services.AddAuthorization();
@@ -88,9 +92,9 @@ app.MapFallback(async (HttpContext context, HttpClient client) => {
   }
 
   var handler = new JwtSecurityTokenHandler();
-  var key = "secretqsjfhdsqjfhlqsjhflkqsjhfdlkjqshl"u8.ToArray();
   var tokenDescriptor = new SecurityTokenDescriptor {
-    Subject = new ClaimsIdentity(new Claim[] { new("username", "test") }),
+    Subject = new ClaimsIdentity(new Claim[] { new("name", "test"), new("sub", Guid.NewGuid().ToString()) }),
+    Issuer = "http://localhost:5000",
     Expires = DateTime.UtcNow.AddMinutes(1),
     SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),
   };
