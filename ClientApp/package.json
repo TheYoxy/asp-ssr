@@ -5,12 +5,14 @@
     "build": "remix build",
     "dev": "remix dev",
     "start": "remix-serve build",
-    "typecheck": "tsc"
+    "generate": "openapi-typescript-codegen --input http://localhost:5000/swagger --output ./src/api",
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "@remix-run/node": "^1.11.1",
     "@remix-run/react": "^1.11.1",
     "@remix-run/serve": "^1.11.1",
+    "@remix-run/server-runtime": "^1.11.1",
     "isbot": "^3.6.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

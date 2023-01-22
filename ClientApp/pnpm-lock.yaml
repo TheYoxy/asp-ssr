@@ -6,6 +6,7 @@ specifiers:
   '@remix-run/node': ^1.11.1
   '@remix-run/react': ^1.11.1
   '@remix-run/serve': ^1.11.1
+  '@remix-run/server-runtime': ^1.11.1
   '@types/react': ^18.0.25
   '@types/react-dom': ^18.0.8
   eslint: ^8.27.0
@@ -18,6 +19,7 @@ dependencies:
   '@remix-run/node': 1.11.1_biqbaboplfbrettd7655fr4n2y
   '@remix-run/react': 1.11.1_biqbaboplfbrettd7655fr4n2y
   '@remix-run/serve': 1.11.1_biqbaboplfbrettd7655fr4n2y
+  '@remix-run/server-runtime': 1.11.1_biqbaboplfbrettd7655fr4n2y
   isbot: 3.6.5
   react: 18.2.0
   react-dom: 18.2.0_react@18.2.0

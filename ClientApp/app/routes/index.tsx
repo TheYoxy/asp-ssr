@@ -2,11 +2,12 @@ import {json, LoaderFunction} from "@remix-run/node";
 import {Outlet, useLoaderData} from "@remix-run/react";
 
 export const loader: LoaderFunction = async ({request}) => {
-    const auth = request.headers.get('Proxy-Authorization');
-    console.log(auth);
-    const todos = await fetch(process.env.BACKEND_URL + '/api/todos', {headers: {Authorization: auth}}).then(res => res.ok ? res.json() : []);
-    return json({message: "Hello World", todos});
-};
+    const proxyAuth = request.headers.get("Proxy-Authorization");
+
+    const todos = await fetch(`${process.env.BACKEND_URL}/api/todos`, {headers: {Authorization: proxyAuth}}).then(response => response.json());
+    return json({message: "Hello from Remix!", todos});
+}
+
 export default function Index() {
     const {message, todos} = useLoaderData();
     return (
