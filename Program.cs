@@ -96,7 +96,7 @@ app.MapFallback(async (HttpContext context, HttpClient client) => {
   var token = handler.CreateToken(tokenDescriptor);
   var tokenString = handler.WriteToken(token);
   requestMessage.Headers.ProxyAuthorization = new AuthenticationHeaderValue(JwtBearerDefaults.AuthenticationScheme, tokenString);
-  requestMessage.RequestUri = targetUri;
+  requestMessage.RequestUri = new Uri(targetUri, context.Request.Path + context.Request.QueryString);
   requestMessage.Headers.Host = targetUri.Host;
   requestMessage.Method = GetMethod(context.Request.Method);
 

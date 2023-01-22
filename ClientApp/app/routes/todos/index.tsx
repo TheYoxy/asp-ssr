@@ -1,13 +1,4 @@
-import {json, LoaderFunction} from "@remix-run/node";
-import {useLoaderData} from "@remix-run/react";
-
-export const loader: LoaderFunction = async ({request}) => {
-    const todos = await fetch(process.env.BACKEND_URL + '/api/todos').then(res => res.ok ? res.json() : []);
-    return json(todos);
-}
-
 export default function Todos() {
-    const data = useLoaderData();
     return (
         <div style={{fontFamily: "system-ui, sans-serif", lineHeight: "1.4"}}>
             <h1>Welcome to Remix</h1>
@@ -35,10 +26,6 @@ export default function Todos() {
                         Remix Docs
                     </a>
                 </li>
-            </ul>
-            <hr></hr>
-            <ul>
-                Todos: {data.map((todo: any) => <li>{todo.title}</li>)}
             </ul>
         </div>
     );
